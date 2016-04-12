@@ -1,4 +1,4 @@
-# Tapas - A tiny-imaged minimal static HTTP file server
+# Tapas - A tiny-imaged (8MB) minimal static HTTP file server with Go and Docker
 
 Tapas are quick and easy, and so is this recipe for standing up a *quick-and-dirty* static http file server
 that is under 10MB.
