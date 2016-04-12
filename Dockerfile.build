@@ -1,0 +1,6 @@
+FROM golang:latest 
+RUN mkdir -p /app /app/bin
+ADD . /app/ 
+WORKDIR /app 
+ENV CGO_ENABLED=0 GOOS=linux
+RUN go build -a -installsuffix cgo -o main .

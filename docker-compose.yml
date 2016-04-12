@@ -1,0 +1,12 @@
+version: "2"
+
+services:
+  tapas:
+    restart: always
+    image: tapas
+    container_name: tapas-server
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 80:3000
