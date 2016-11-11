@@ -63,7 +63,7 @@ Take a look at your image:
 
     > docker images
     REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-    tapas               latest              a9affeb76417        18 minutes ago      759.5 MB
+    tapas               latest              a9affeb76417        18 minutes ago      686.6 MB
 
 **Holey peaella Batman, its huge!**
 
@@ -74,11 +74,10 @@ build applications it. For this work I've taken liberal advantage of the followi
 [Building Minimal Docker Containers for Go Applications](https://blog.codeship.com/building-minimal-docker-containers-for-go-applications/) 
 
 
-To get this done, we'll use a separate build Docker image and a runtime image that uses the most minimal of
-Docker images, the `FROM scratch` image. These we'll call...
+To get this done, we'll use the standard community golang docker image to build the tapas binary and then `ADD` that binary into
+the most minimal of Docker images, using the `FROM scratch` image.
 
-* Dockerfile.build
-* Dockerfile.scratch
+**Dockerfile.scratch**
 
 Take a look at `Dockerfile.scratch`
 
@@ -100,99 +99,34 @@ Docker Engines that don't have access to your filesystem.
 
 ### Make it Tiny Locally
 
-To build something locally, we'll use a mount point to access our current working directory. We'll build the
-image, then run it to create a statically linked binary. Finally we'll take the binary, add it to your runtime
+To build something locally, we'll use a mount point to access our current working directory from the community golang image, 
+then run it to create a statically linked binary. Finally we'll take the binary, add it to your runtime
 `Docker image` and start it up.
 
 Start by editing the `docker-compose.yml` file and change `Dockerfile` to `Dockerfile.scratch`. Then ...
 
-    > docker build --rm -t tapas.build -f Dockerfile.build .
-    > docker run --rm -v $(pwd):/app tapas.build go build -a -installsuffix cgo -o main .
-    > docker-compose build
+Build a static version of `tapas` in the current directory...
 
-Note that `Dockerfile.build` uses the stock `golang` image from [Docker Hub](https://hub.docker.com/) then sets
-the environment variables `CGO_ENABLED=0` and `GOOS=linux` before building the source.
+    > docker run --rm -v $PWD:/app -w /app -e CGO_ENABLED=0 -e GOOS=linux golang:1.7 go build -a -installsuffix cgo -o tapas .
 
-Note that we've mounted our current directory and run `go` to build the application. When we're done we should
-see `main` in our current directory. Running `docker-compose` to build, creates our final image that we can push
-up and deploy.
 
 Take a look at the size of your new image:
 
     > docker images
     REPOSITORY          TAG                 IMAGE ID            CREATED              SIZE
-    tapas               latest              02ad557c10d8        3 seconds ago        7.951 MB
-    tapas.build         latest              88e6eaa7347b        About a minute ago   759.5 MB
+    tapas               latest              02ad557c10d8        3 seconds ago        5.985 MB
 
 **Nice!** only 7.9MB
 
-Stop, remove the old container and start up the new one.
+So, does it work?
+  
+Edit the `docker-compose.yml` file and change `Dockerfile` to `Dockerfile.scratch`. Then ...
 
-
-### Make it Tiny Remotely
-
-Let's say you've got a build machine, or you need to get your image onto a remote machine without
-a repository. To do this, we'll need to take a slightly different approach since the local filesystem 
-won't be available.
-
-If you haven't setup your remote `docker-machine` and have an **AWS** account, you can use the following
-bash commands (sorry Windows devs - it should be similar, but not exactly like this). Make sure you've
-setup your AWS credentials in your `~/.awssecret` file ...
-
-    IFS=$'\r\n' GLOBIGNORE='*' :
-    AWS_CREDS=($(cat ~/.awssecret))
-    
-    MACHINE=your-machine-here
-    
-    docker-machine -D create \
-        --driver amazonec2 \
-        --amazonec2-access-key ${AWS_CREDS[0]} \
-        --amazonec2-secret-key ${AWS_CREDS[1]} \
-        --amazonec2-instance-type m3.large \
-        --amazonec2-region us-east-1 \
-        --amazonec2-root-size 16 \
-        --amazonec2-ami $AMI \
-        $MACHINE
-
-Make sure that you have your chosen port is open via the host's security group.
-
-Once your machine has been created, you can get it's IP by using the following command:
-
-    > docker-machine ip your-machine-name
-
-And set your docker-machine
-
-    > eval $(docker-machine env your-machine-name)
-
-The trick to building the image remotely is to take advantage of the ability to copy files to
-and from containers. This looks something like:
-
-    > docker cp container_name:file_path_in_container file_path_on_local_filesystem
-    > docker cp -r some_root_path_on_local_filesystem container_name:file_path_in_container
-
-So, starting with the `Dockefile.scratch` you set up before, the steps to building the container are...
-
-    > docker build --rm -t tapas.build -f Dockerfile.build .
-    > docker create --name=tapas.build tapas.build
-    > docker cp tapas.build:/app/main .
-    > docker rm tapas.build
     > docker-compose build
+    > docker-compose up
 
-A lot of the steps are the same as we used when building the image locally. The main difference is
-that instead of running a Docker container to build the result, we're copy the binary that was
-created during the build process once we've created a container. (Note that we remove the build container, 
-since its no longer necessary.)
+Now see that it still works!
 
-Take a look at the size of your new image:
-
-    > docker images
-    REPOSITORY          TAG                 IMAGE ID            CREATED              SIZE
-    tapas               latest              02ad557c10d8        3 seconds ago        7.951 MB
-    tapas.build         latest              88e6eaa7347b        About a minute ago   759.5 MB
-
-**Nice!** only 7.9MB
-
-Stop, remove the old container and start up the new one.
 
 ## Re-using the Image
 
