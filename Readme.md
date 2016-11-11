@@ -1,5 +1,7 @@
 # Tapas - A tiny-imaged (8MB) minimal static HTTP file server with Go and Docker
 
+[![Docker Repository on Quay](https://quay.io/repository/leopoldodonnell/tapas/status "Docker Repository on Quay")](https://quay.io/repository/leopoldodonnell/tapas)
+
 Tapas are quick and easy, and so is this recipe for standing up a *quick-and-dirty* static http file server
 that is under 10MB.
 
