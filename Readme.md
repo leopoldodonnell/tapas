@@ -5,7 +5,7 @@
 Tapas are quick and easy, and so is this recipe for standing up a *quick-and-dirty* static http file server
 that is under 10MB.
 
-Another way to look at this project is that it demonstrates how to use `golang` to build Docker images 
+Another way to look at this project is that it demonstrates how to use `golang` to build Docker images
 that are sub 10MB. The recipe supplied can be replicated in other projects as an approach to build up
 microservice architectures with tiny Docker images that are easily shipped and started.
 
@@ -15,7 +15,7 @@ web server.
 
 ## Getting Started
 
-1, If you don't already have Docker > 1.10 installed on your development machine, visit the 
+1, If you don't already have Docker > 1.10 installed on your development machine, visit the
 [Install Docker Engine](https://docs.docker.com/engine/installation/) page and do that now. Then
 get your `docker-machine` started. ie `docker-machine start your-machine-name-here`
 
@@ -63,34 +63,41 @@ Take a look at your image:
 
     > docker images
     REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-    tapas               latest              a9affeb76417        18 minutes ago      686.6 MB
+    tapas               latest              a9affeb76417        18 minutes ago      716.6 MB
 
 **Holey peaella Batman, its huge!**
 
 Not a problem, we can shrink this image.
 
 One of the great things about writing servers in `go` is that `go` is compiled **AND** we can statically
-build applications it. For this work I've taken liberal advantage of the following article: 
-[Building Minimal Docker Containers for Go Applications](https://blog.codeship.com/building-minimal-docker-containers-for-go-applications/) 
+build applications it. For this work I've taken liberal advantage of the following article:
+[Building Minimal Docker Containers for Go Applications](https://blog.codeship.com/building-minimal-docker-containers-for-go-applications/)
 
 
 To get this done, we'll use the standard community golang docker image to build the tapas binary and then `ADD` that binary into
-the most minimal of Docker images, using the `FROM scratch` image.
+the most minimal of Docker images, using a multistage build and the `FROM scratch` directive.
 
 **Dockerfile.scratch**
 
 Take a look at `Dockerfile.scratch`
 
 ```docker
+FROM golang as builder
+COPY tapas.go /app/tapas.go
+WORKDIR /app
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tapas .
+
 FROM scratch
 ADD ca-certificates.crt /etc/ssl/certs/
-ADD main /
+COPY --from=builder /app/tapas /
 ADD static /static
-CMD ["/main"]
+CMD ["/tapas"]
 ```
 
-`FROM scratch` tells docker to use the next Dockerfile command as the first filesystem layer. This doesn't have
-to be a complete operating system like `ubuntu`, `alpine`, or `jessie` (to name a few `Linix` varieties). Using
+The top half of the Dockerfile is labeled as *builder* and is used to compile the simple `tapas.go` into the statically linked
+ `/app/tapas`. Then the second half of the multistage build completes the work to create the final container image. It starts with
+ the `FROM scratch` directive that tells docker to use the next Dockerfile command as the first filesystem layer. This doesn't have
+to be a complete operating system like `ubuntu`, `alpine`, or `jessie` (to name a few `linux` varieties). Using
 a statically linked application will do just fine in many cases. This lets us build tiny images for tiny containers
 that take no time to download from a *docker registry*.
 
@@ -99,30 +106,28 @@ Docker Engines that don't have access to your filesystem.
 
 ### Make it Tiny Locally
 
-To build something locally, we'll use a mount point to access our current working directory from the community golang image, 
-then run it to create a statically linked binary. Finally we'll take the binary, add it to your runtime
-`Docker image` and start it up.
+To build something locally, we'll just redirect the `docker-compose.yml` to use the new multistage build and then rerun the
+build command.
 
 Start by editing the `docker-compose.yml` file and change `Dockerfile` to `Dockerfile.scratch`. Then ...
 
-Build a static version of `tapas` in the current directory...
+Build a static version of `tapas`...
 
-    > docker run --rm -v $PWD:/app -w /app -e CGO_ENABLED=0 -e GOOS=linux golang:1.7 go build -a -installsuffix cgo -o tapas .
+    > docker-compose build
 
 
 Take a look at the size of your new image:
 
     > docker images
     REPOSITORY          TAG                 IMAGE ID            CREATED              SIZE
-    tapas               latest              02ad557c10d8        3 seconds ago        5.985 MB
+    tapas               latest              02ad557c10d8        3 seconds ago        6.45 MB
 
-**Nice!** only 7.9MB
+**Nice!** only 6.45MB
 
 So, does it work?
-  
+
 Edit the `docker-compose.yml` file and change `Dockerfile` to `Dockerfile.scratch`. Then ...
 
-    > docker-compose build
     > docker-compose up
 
 Now see that it still works!
@@ -150,23 +155,23 @@ I hope you've enjoyed this project, please Star it, clone it, share it etc.
 
 Thanks,
    Leo O'Donnell
-   
+
 
 ## Copyright
 
-MIT License. 
+MIT License.
 Copyright (c) 2016 Leopold O'Donnell
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
-documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
 and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions 
+The above copyright notice and this permission notice shall be included in all copies or substantial portions
 of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED 
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
-THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
-CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.

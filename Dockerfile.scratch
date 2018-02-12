@@ -1,5 +1,10 @@
+FROM golang as builder
+COPY tapas.go /app/tapas.go
+WORKDIR /app
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tapas .
+
 FROM scratch
 ADD ca-certificates.crt /etc/ssl/certs/
-ADD tapas /
+COPY --from=builder /app/tapas /
 ADD static /static
 CMD ["/tapas"]
